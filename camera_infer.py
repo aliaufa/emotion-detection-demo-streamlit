@@ -15,10 +15,7 @@ def run():
 
     # Option 1: Simple camera input (single snapshot)
     st.write("### Option 1: Capture Single Frame")
-    camera_photo = None
-    photo_button = st.button("Open Camera")
-    if photo_button:
-        camera_photo = st.camera_input("Take a picture")
+    camera_photo = st.camera_input("Take a picture")
 
     if camera_photo is not None:
         # Convert the uploaded image to OpenCV format
