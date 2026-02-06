@@ -115,9 +115,16 @@ def run():
 
         # Display output video
         st.write("### Output Video with Emotion Annotations")
-        video_file = open(OUTPUT_PATH, 'rb')
-        video_bytes = video_file.read()
-        st.video(video_bytes)
+        st.video(str(OUTPUT_PATH), format="video/mp4")
+
+        # Download button for processed video
+        with open(OUTPUT_PATH, 'rb') as f:
+            st.download_button(
+                label="Download Result Video",
+                data=f,
+                file_name=f"emotion_detected_{uploaded_file.name}",
+                mime="video/mp4"
+            )
 
 if __name__ == "__main__":
     run()
