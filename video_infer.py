@@ -6,12 +6,14 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 from PIL import Image
 import tempfile
+import subprocess
+import imageio_ffmpeg
 
 def run():
     # load model
     model = YOLO('./model/best.pt')
 
-    def process_video_with_stats(video_path, output_path, conf=0.25, max_frames=500):
+    def process_video_with_stats(video_path, output_path, conf=0.25, max_frames=None):
         """
         Process video file with emotion detection and collect statistics
         
@@ -19,7 +21,7 @@ def run():
             video_path: Path to input video
             output_path: Path to save output video
             conf: Confidence threshold
-            max_frames: Maximum number of frames to process (default: 500)
+            max_frames: Maximum number of frames to process (default: all frames)
         """
         import cv2
         from collections import defaultdict
@@ -34,7 +36,7 @@ def run():
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         
         # Limit frames to process
-        frames_to_process = min(total_frames, max_frames)
+        frames_to_process = min(total_frames, max_frames) if max_frames is not None else total_frames
         
         st.write(f"Video properties:")
         st.write(f"  FPS: {fps}")
@@ -55,7 +57,7 @@ def run():
         progress_bar = st.progress(0)
         status_text = st.empty()
         
-        while cap.isOpened() and frame_count < max_frames:
+        while cap.isOpened() and frame_count < frames_to_process:
             ret, frame = cap.read()
             if not ret:
                 break
@@ -86,6 +88,24 @@ def run():
         cap.release()
         out.release()
         
+        # Re-encode to H.264 for browser compatibility
+        output_h264 = output_path.replace('.mp4', '_h264.mp4').replace('.avi', '_h264.mp4').replace('.mov', '_h264.mp4')
+        if not output_h264.endswith('_h264.mp4'):
+            output_h264 = output_path + '_h264.mp4'
+        
+        try:
+            ffmpeg_path = imageio_ffmpeg.get_ffmpeg_exe()
+            subprocess.run([
+                ffmpeg_path, '-y', '-i', output_path,
+                '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
+                '-c:a', 'aac', '-movflags', '+faststart',
+                output_h264
+            ], check=True, capture_output=True)
+            # Replace original with H.264 version
+            os.replace(output_h264, output_path)
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            st.warning(f"FFmpeg re-encoding failed, video may not play in browser: {e}")
+        
         progress_bar.empty()
         status_text.empty()
         
@@ -99,6 +119,7 @@ def run():
     with st.form("video_infer_form"):
         st.write("## Upload a Video for Emotion Detection")
         uploaded_file = st.file_uploader("Choose a video...", type=["mp4", "avi", "mov"])
+        frames = st.pills("Limit Frames to Process", options=["All", "100", "300", "500"])
         submit_button = st.form_submit_button(label='Detect Video')
 
     if submit_button and uploaded_file is not None:
@@ -111,7 +132,11 @@ def run():
         OUTPUT_PATH = temp_dir / f"output_{uploaded_file.name}"
 
         # Run video processing with stats (limited to 500 frames)
-        emotion_stats = process_video_with_stats(str(VIDEO_PATH), str(OUTPUT_PATH), conf=0.25, max_frames=500)
+        if frames == "All":
+            frames_limit = None
+        else:
+            frames_limit = int(frames)
+        emotion_stats = process_video_with_stats(str(VIDEO_PATH), str(OUTPUT_PATH), conf=0.25, max_frames=frames_limit)
 
         # Display output video
         st.write("### Output Video with Emotion Annotations")
