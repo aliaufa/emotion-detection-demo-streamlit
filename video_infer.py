@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import matplotlib.pyplot as plt
 from PIL import Image
+import tempfile
 
 def run():
     # load model
@@ -101,9 +102,8 @@ def run():
         submit_button = st.form_submit_button(label='Detect Video')
 
     if submit_button and uploaded_file is not None:
-        # Save uploaded video to a temporary location
-        temp_dir = Path("temp_videos")
-        temp_dir.mkdir(exist_ok=True)
+        # Save uploaded video to a temporary location (using tempfile for Streamlit Cloud compatibility)
+        temp_dir = Path(tempfile.gettempdir())
         VIDEO_PATH = temp_dir / uploaded_file.name
         with open(VIDEO_PATH, "wb") as f:
             f.write(uploaded_file.getbuffer())
